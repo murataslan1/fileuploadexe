@@ -2,14 +2,46 @@
 
 A Windows Forms desktop application (.NET 8) that lets you drag-and-drop images, reorder them, search/filter by filename with autocomplete, and merge them into a single PDF.
 
+**Single EXE** -- Double-click `ImageToPdfMerger.exe` and it just works. No installation, no .NET runtime needed.
+
+## Quick Start (Usage)
+
+### 1. Download & Run
+1. Download `ImageToPdfMerger.exe` from the [Releases](https://github.com/murataslan1/fileuploadexe/releases) page
+2. Double-click the EXE -- the app opens instantly, no setup required
+
+### 2. Add Images
+- **Drag & drop** image files (JPEG, PNG, BMP, HEIC, WebP) onto the drop zone area
+- Or **click** the drop zone to open a file browser
+- Or press `Ctrl+O` to open the file dialog
+
+### 3. Organize Your Images
+- **Search**: Type in the search box (`Ctrl+F`) to filter images by filename -- autocomplete suggests matches as you type
+- **Reorder**: Drag items in the list to change order, or select and use the `Up`/`Down` buttons
+- **Remove**: Select images and click `Delete` or press the `Delete` key
+- **Check/Uncheck**: Use checkboxes to include or exclude individual images from the PDF
+
+### 4. Configure PDF Settings
+- **Page Size**: A4, Letter, A3, or Original (keeps each image's native size)
+- **Orientation**: Portrait or Landscape
+- **Scale Mode**: Fit to Page, Original Size, or Fit to Width
+- **Margin**: Toggle 10mm margin on/off
+
+### 5. Preview & Save
+1. Click **"Merge & Preview"** (or press `F5`) to generate the PDF and see a page-by-page preview
+2. Navigate pages with the `<` and `>` buttons
+3. Click **"Save PDF"** (or press `Ctrl+S`) to save the final PDF file
+
 ## Features
 
-- **Drag & Drop**: Drop images (JPEG, PNG, BMP, HEIC, WebP) onto the app or click to browse
-- **Search & Autocomplete**: Real-time filtering of loaded images by filename with autocomplete suggestions
+- **Drag & Drop**: Drop images onto the app or click to browse
+- **Search & Autocomplete**: Real-time filtering with dropdown suggestions as you type
 - **Reorder**: Drag-reorder items in the list or use Up/Down buttons
-- **PDF Settings**: Choose page size (A4/Letter/A3/Original), orientation (Portrait/Landscape), and scaling mode (Fit to Page/Original Size/Fit to Width)
-- **Preview**: See a page-by-page preview before saving
-- **Self-Contained EXE**: Runs directly without .NET runtime installation
+- **PDF Settings**: Page size, orientation, scaling mode, margin toggle
+- **Preview**: Page-by-page preview before saving
+- **HEIC/WebP Support**: Automatically converts HEIC and WebP images
+- **Duplicate Detection**: Same file won't be added twice
+- **Single EXE**: Self-contained, no dependencies, just double-click and run
 
 ## Screenshot
 
@@ -42,29 +74,29 @@ A Windows Forms desktop application (.NET 8) that lets you drag-and-drop images,
 | `Ctrl+Up` | Move selected up |
 | `Ctrl+Down` | Move selected down |
 | `F5` | Merge & Preview |
-| `Escape` | Clear search |
+| `Escape` | Clear search, return to list |
 
-## Build & Run
+## Build from Source
 
 ### Prerequisites
 - Windows 10/11
-- .NET 8 SDK (for building)
+- [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0)
 
-### Build
+### Build & Run
 ```bash
 cd ImageToPdfMerger
 dotnet build
 dotnet run
 ```
 
-### Publish as Self-Contained EXE
+### Publish as Single Self-Contained EXE
 ```bash
 dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true
 ```
 
-The output EXE will be in `bin/Release/net8.0-windows/win-x64/publish/ImageToPdfMerger.exe`.
+Output: `bin/Release/net8.0-windows/win-x64/publish/ImageToPdfMerger.exe`
 
-Double-click the EXE to run -- no .NET runtime installation required.
+This produces a **single EXE file** that includes the .NET runtime and all dependencies. Copy it anywhere, double-click, and it runs -- no installation needed.
 
 ## Project Structure
 
