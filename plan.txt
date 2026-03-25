@@ -1,0 +1,441 @@
+# Claude Code Plan: Windows Forms — Fotograf Birlestirici & PDF Olusturucu
+
+## Proje Ozeti
+
+Kullanicilarin fotograflari (JPEG/PNG/BMP/HEIC) surukle-birak ile yukleyip, siralayip, tek bir PDF dosyasina birlestirip onizleme yaparak disa aktarabilidigi bir **Windows Forms (.NET 8)** masaustu uygulamasi.
+
+---
+
+## Wireframe Analizi (Eskiz Referansi)
+
+```
++-------------------------------------------------------------+
+|  [Baslik Cubugu: "Fotograf -> PDF Birlestirici"]            |
++----------------------+--------------------------------------+
+|                      |                                      |
+|  +----------------+  |  +------------------------------+   |
+|  | Surukle-Birak  |  |  |                              |   |
+|  |   ALANI        |  |  |     PDF ONIZLEME PANELI      |   |
+|  |                |  |  |                              |   |
+|  |  "Fotograflari |  |  |   +-----+  +-----+          |   |
+|  |   buraya birakin| |  |   |Sayfa|  |Sayfa|          |   |
+|  |   veya tiklayin"|  |  |   |  1  |  |  2  |          |   |
+|  |                |  |  |   +-----+  +-----+          |   |
+|  +----------------+  |  |                              |   |
+|                      |  +------------------------------+   |
+|  +----------------+  |                                      |
+|  | ListView:      |  |  +------------------------------+   |
+|  | [ ] foto1.jpg  |  |  | Sayfa: < 1/5 >              |   |
+|  | [ ] foto2.png  |  |  +------------------------------+   |
+|  | [ ] foto3.jpeg |  |                                      |
+|  +----------------+  |                                      |
+|                      |                                      |
+|  [Sil] [Yukari]     |  [Birlestir]  [PDF Kaydet]          |
+|  [Asagi] [Temizle]  |  [A4/Letter]  [Dikey/Yatay]         |
++----------------------+--------------------------------------+
+```
+
+---
+
+## Teknik Mimari
+
+### Teknoloji Secimi
+- **Framework:** .NET 8 Windows Forms (C#)
+- **PDF Kutuphanesi:** `PdfSharpCore` (MIT lisans, cross-platform PDF olusturma)
+- **Goruntu Isleme:** `System.Drawing.Common` + `ImageSharp` (HEIC destegi icin)
+- **Onizleme:** `PictureBox` + custom render veya `WebView2` ile PDF goruntuleme
+- **NuGet Paketleri:**
+  - `PdfSharpCore` (v1.3.x)
+  - `SixLabors.ImageSharp` (v3.x -- HEIC/WebP destegi)
+  - `Microsoft.Web.WebView2` (PDF onizleme icin -- opsiyonel)
+
+### Proje Yapisi
+```
+ImageToPdfMerger/
++-- ImageToPdfMerger.sln
++-- ImageToPdfMerger/
+|   +-- Program.cs
+|   +-- Forms/
+|   |   +-- MainForm.cs              # Ana form
+|   |   +-- MainForm.Designer.cs     # Designer kodu
+|   |   +-- MainForm.resx
+|   +-- Services/
+|   |   +-- ImageService.cs          # Resim yukleme, donusturme, boyutlandirma
+|   |   +-- PdfService.cs            # PDF olusturma ve birlestirme
+|   |   +-- PreviewService.cs        # Onizleme render
+|   +-- Models/
+|   |   +-- ImageItem.cs             # Yuklenen resim modeli
+|   |   +-- PdfSettings.cs           # Sayfa boyutu, yonelim ayarlari
+|   +-- Controls/
+|   |   +-- DropZonePanel.cs          # Custom surukle-birak paneli
+|   |   +-- ThumbnailListView.cs      # Siralanabilir thumbnail listesi
+|   +-- Utils/
+|   |   +-- FileHelper.cs            # Dosya islemleri, temp klasor yonetimi
+|   +-- Resources/
+|       +-- icons/                   # Uygulama ikonlari
+|       +-- placeholder.png          # Drop zone placeholder gorseli
++-- ImageToPdfMerger.Tests/
+|   +-- PdfServiceTests.cs
+|   +-- ImageServiceTests.cs
++-- README.md
+```
+
+---
+
+## Adim Adim Uygulama Plani
+
+### ASAMA 1: Proje Iskeleti ve Temel Form (Oncelik: Yuksek)
+
+**Gorev 1.1 -- Proje Olusturma**
+```bash
+dotnet new winforms -n ImageToPdfMerger --framework net8.0
+cd ImageToPdfMerger
+dotnet add package PdfSharpCore --version 1.3.65
+dotnet add package SixLabors.ImageSharp --version 3.1.6
+```
+
+**Gorev 1.2 -- MainForm Layout (SplitContainer ile iki panel)**
+```
+Sol Panel (Panel1 -- 350px sabit genislik):
++-- DropZonePanel (custom UserControl, 200px yukseklik)
+|   - AllowDrop = true
+|   - DragEnter, DragDrop event'leri
+|   - Dashed border, merkeze "Surukle & Birak" label
+|   - Desteklenen formatlar: .jpg, .jpeg, .png, .bmp, .heic, .webp
++-- ListView (Dock: Fill, kalan alan)
+|   - View = Details
+|   - Columns: [x] | Dosya Adi | Boyut | Cozunurluk
+|   - LargeImageList ile thumbnail gosterimi
+|   - Drag-reorder destegi (ItemDrag + DragDrop)
++-- Toolbar (FlowLayoutPanel, 40px yukseklik)
+    - [Secileni Sil] [Yukari] [Asagi] [Tumunu Temizle]
+
+Sag Panel (Panel2 -- kalan alan):
++-- PictureBox veya WebView2 (Dock: Fill)
+|   - PDF onizleme alani
+|   - SizeMode = Zoom
++-- Sayfa Navigasyon Paneli (40px yukseklik)
+|   - [< Onceki] Label:"Sayfa 1/5" [> Sonraki]
++-- Alt Toolbar (60px yukseklik)
+    - ComboBox: Sayfa Boyutu [A4 | Letter | A3 | Orijinal]
+    - ComboBox: Yonelim [Dikey (Portrait) | Yatay (Landscape)]
+    - ComboBox: Olcekleme [Sayfaya Sigdir | Orijinal Boyut | Genislige Sigdir]
+    - CheckBox: Kenar Boslugu (10mm)
+    - [Birlestir & Onizle] [PDF Olarak Kaydet]
+```
+
+**Gorev 1.3 -- ImageItem Model**
+```csharp
+public class ImageItem
+{
+    public string FilePath { get; set; }
+    public string FileName { get; set; }
+    public long FileSize { get; set; }
+    public int Width { get; set; }
+    public int Height { get; set; }
+    public Image Thumbnail { get; set; }  // 64x64 kucuk resim
+    public int Order { get; set; }
+    public bool IsSelected { get; set; } = true;
+}
+```
+
+**Gorev 1.4 -- PdfSettings Model**
+```csharp
+public class PdfSettings
+{
+    public PageSize PageSize { get; set; } = PageSize.A4;
+    public PageOrientation Orientation { get; set; } = PageOrientation.Portrait;
+    public ScaleMode ScaleMode { get; set; } = ScaleMode.FitToPage;
+    public double MarginMm { get; set; } = 10;
+    public int ImageQuality { get; set; } = 90; // JPEG sikistirma kalitesi
+}
+
+public enum ScaleMode { FitToPage, OriginalSize, FitToWidth }
+```
+
+---
+
+### ASAMA 2: Surukle-Birak ve Dosya Yonetimi (Oncelik: Yuksek)
+
+**Gorev 2.1 -- DropZonePanel Custom Control**
+```csharp
+// DropZonePanel.cs -- Temel gereksinimler:
+// 1. AllowDrop = true
+// 2. DragEnter -> dosya turu kontrolu -> e.Effect = DragDropEffects.Copy
+// 3. DragDrop -> dosyalari parse et, her biri icin ImageItem olustur
+// 4. OnPaint override -> dashed border ciz, ikon + metin goster
+// 5. Hover state: DragOver sirasinda arka plan rengini degistir
+// 6. Click event -> OpenFileDialog ile de dosya secilebilsin
+// 7. Desteklenen uzantilar: .jpg, .jpeg, .png, .bmp, .gif, .tiff, .heic, .webp
+```
+
+**Gorev 2.2 -- ImageService.cs**
+```csharp
+public class ImageService
+{
+    // Resim yukleme (HEIC dahil -- ImageSharp ile)
+    public ImageItem LoadImage(string filePath);
+
+    // Thumbnail olusturma (64x64, orantili)
+    public Image CreateThumbnail(string filePath, int size = 64);
+
+    // HEIC -> JPEG donusturme (gecici dosyaya)
+    public string ConvertHeicToJpeg(string heicPath);
+
+    // EXIF orientasyon duzeltme (dondurme)
+    public Image CorrectOrientation(Image image);
+
+    // Toplu yukleme (async, progress callback ile)
+    public async Task<List<ImageItem>> LoadImagesAsync(
+        string[] filePaths,
+        IProgress<int> progress,
+        CancellationToken ct);
+}
+```
+
+**Gorev 2.3 -- ListView Siralama (Drag-Reorder)**
+```
+- ListView.ItemDrag event -> DoDragDrop baslat
+- ListView.DragOver event -> InsertionMark goster (hedef konumu belirt)
+- ListView.DragDrop event -> item'i yeni konuma tasi
+- Yukari/Asagi butonlari ile de siralama destegi
+- Coklu secim + toplu silme
+```
+
+---
+
+### ASAMA 3: PDF Olusturma Motoru (Oncelik: Yuksek)
+
+**Gorev 3.1 -- PdfService.cs**
+```csharp
+public class PdfService
+{
+    // Ana birlestirme metodu
+    public byte[] MergeImagesToPdf(
+        List<ImageItem> images,
+        PdfSettings settings);
+
+    // Tek bir resmi PDF sayfasina ekle
+    private void AddImageToPage(
+        PdfDocument doc,
+        string imagePath,
+        PdfSettings settings);
+
+    // Resmi sayfa boyutuna gore olcekle
+    private (double x, double y, double w, double h) CalculateImagePlacement(
+        double imgWidth, double imgHeight,
+        double pageWidth, double pageHeight,
+        double margin, ScaleMode mode);
+
+    // PDF'i dosyaya kaydet
+    public void SavePdf(byte[] pdfBytes, string outputPath);
+
+    // PDF'i gecici dosyaya kaydet (onizleme icin)
+    public string SaveToTempFile(byte[] pdfBytes);
+}
+```
+
+**Gorev 3.2 -- Olcekleme Algoritmasi**
+```
+FitToPage:
+  1. Resim en-boy oranini koru
+  2. Marjinleri cikar -> kullanilabilir alan hesapla
+  3. Genislik orani = kullanilabilir_genislik / resim_genislik
+  4. Yukseklik orani = kullanilabilir_yukseklik / resim_yukseklik
+  5. min(genislik_orani, yukseklik_orani) kullan -> merkezle
+
+FitToWidth:
+  1. Genislige sigdir, yukseklik orantili
+  2. Sayfa yuksekligini asarsa -> otomatik kirp veya yeni sayfa
+
+OriginalSize:
+  1. Resmi orijinal DPI'da yerlestir
+  2. Sayfadan tasarsa -> merkezle ve kirp
+```
+
+---
+
+### ASAMA 4: Onizleme Sistemi (Oncelik: Orta)
+
+**Gorev 4.1 -- PreviewService.cs**
+```csharp
+public class PreviewService
+{
+    // PDF byte[] -> sayfa gorselleri (PictureBox icin)
+    public List<Image> RenderPdfPages(byte[] pdfBytes, int dpi = 150);
+
+    // Tek sayfa render
+    public Image RenderPage(byte[] pdfBytes, int pageIndex, int dpi = 150);
+
+    // Toplam sayfa sayisi
+    public int GetPageCount(byte[] pdfBytes);
+}
+```
+
+**Gorev 4.2 -- Onizleme Yaklasimi (2 Secenek)**
+
+**Secenek A -- PictureBox ile sayfa gorseli (Basit, Onerilen):**
+```
+- PDF olustur -> her sayfayi Bitmap'e render et
+- PictureBox.Image = renderEdilmisSayfa
+- Navigasyon: < Onceki | Sayfa X/Y | Sonraki >
+- Avantaj: Ek bagimlilik yok
+- Dezavantaj: Gercek PDF deneyimi degil
+```
+
+**Secenek B -- WebView2 ile PDF Viewer (Zengin, Opsiyonel):**
+```
+- PDF'i temp dosyaya kaydet
+- WebView2.Source = new Uri(tempPdfPath)
+- Chrome tabanli tam PDF goruntuyeci
+- Avantaj: Zoom, arama, yazdirma destegi
+- Dezavantaj: WebView2 Runtime bagimliligi (~150MB)
+```
+
+---
+
+### ASAMA 5: Is Akisi ve Event Yonetimi (Oncelik: Orta)
+
+**Gorev 5.1 -- Ana Akis**
+```
+1. Kullanici fotograflari surukle-birak veya dosya sec ile yukler
+2. Her fotograf icin:
+   a. Dosya turu kontrolu (desteklenen format mi?)
+   b. HEIC ise -> JPEG'e donustur
+   c. EXIF orientasyon duzelt
+   d. Thumbnail olustur
+   e. ListView'e ekle
+3. Kullanici siralamayi ayarlar (drag-reorder / yukari-asagi)
+4. Kullanici sayfa ayarlarini secer (A4, yonelim, olcekleme)
+5. "Birlestir & Onizle" butonuna tiklar
+6. Arka planda PDF olusturulur (BackgroundWorker / Task.Run)
+7. ProgressBar ilerler
+8. PDF onizlemede gosterilir
+9. "PDF Kaydet" -> SaveFileDialog -> dosya kaydedilir
+```
+
+**Gorev 5.2 -- Hata Yonetimi**
+```
+- Bozuk dosya: Hata mesaji goster, digerlerine devam et
+- Cok buyuk dosya (>50MB): Uyari ver, sikistirma oner
+- Bellek yonetimi: Buyuk resimleri stream ile isle, dispose et
+- Bos liste: "Birlestir" butonunu devre disi birak
+- PDF olusturma hatasi: try-catch + kullaniciya anlamli mesaj
+```
+
+---
+
+### ASAMA 6: UI/UX Detaylari (Oncelik: Dusuk)
+
+**Gorev 6.1 -- Gorsel Iyilestirmeler**
+```
+- Form boyutu: 1200x750, MinimumSize: 900x600
+- Form basligi: "Fotograf -> PDF Birlestirici"
+- StatusBar: "5 fotograf yuklendi | Toplam: 12.4 MB | Hazir"
+- ProgressBar: PDF olusturma sirasinda goster
+- Drop zone animasyonu: DragOver'da border rengi degissin
+- ListView alternating row colors
+- Toolbar ikonlari: emoji veya basit ikonlar
+```
+
+**Gorev 6.2 -- Klavye Kisayollari**
+```
+Ctrl+O     -> Dosya Ac (OpenFileDialog)
+Ctrl+S     -> PDF Kaydet
+Delete     -> Secili resimleri sil
+Ctrl+A     -> Tumunu sec
+Ctrl+Up    -> Seciliyi yukari tasi
+Ctrl+Down  -> Seciliyi asagi tasi
+F5         -> Birlestir & Onizle
+Ctrl+Z     -> Son eklemeyi geri al
+```
+
+---
+
+## Test Senaryolari
+
+```
+[x] Tek JPEG dosyasi surukle-birak -> PDF olustur
+[x] 10+ farkli formatta resim toplu yukleme
+[x] HEIC dosyasi yukleme ve donusturme
+[x] Siralama degistirme -> PDF'te sira dogrulamasi
+[x] A4 Portrait vs A4 Landscape cikti kontrolu
+[x] Cok buyuk resim (8000x6000) ile bellek testi
+[x] Bos liste ile "Birlestir" deneme (disabled olmali)
+[x] PDF kaydetme + tekrar acma dogrulamasi
+[x] Ayni dosyayi iki kez eklemeye calisma
+[x] 50+ resimle performans testi
+```
+
+---
+
+## Claude Code'a Verilecek Prompt
+
+Asagidaki promptu Claude Code'a sirayla verebilirsin:
+
+### Prompt 1 -- Proje Olusturma
+```
+Yeni bir .NET 8 Windows Forms projesi olustur:
+- Proje adi: ImageToPdfMerger
+- NuGet paketleri: PdfSharpCore, SixLabors.ImageSharp
+- Proje yapisi: Forms/, Services/, Models/, Controls/, Utils/ klasorleri
+- MainForm: SplitContainer ile iki panel (sol 350px sabit, sag fill)
+- Sol panel: DropZone (ust) + ListView (orta) + Toolbar (alt)
+- Sag panel: PictureBox onizleme (ust) + Navigasyon (orta) + Ayarlar toolbar (alt)
+```
+
+### Prompt 2 -- Surukle-Birak Sistemi
+```
+DropZonePanel custom UserControl olustur:
+- AllowDrop = true, dashed border ile "Fotograflari buraya surukleyin" yazisi
+- DragEnter'da dosya uzantisi kontrolu (.jpg, .jpeg, .png, .bmp, .heic, .webp)
+- DragDrop'ta dosyalari ImageService uzerinden yukle
+- Tiklama ile OpenFileDialog da acilsin
+- DragOver sirasinda gorsel feedback (arka plan rengi degisimi)
+- ImageService: resim yukleme, thumbnail olusturma, HEIC donusturme, EXIF duzeltme
+```
+
+### Prompt 3 -- ListView ve Siralama
+```
+ListView'i yapilandir:
+- Columns: Checkbox | Thumbnail | Dosya Adi | Boyut | Cozunurluk
+- LargeImageList ile 64x64 thumbnail gosterimi
+- Drag-reorder: ItemDrag + DragOver + DragDrop ile sira degistirme
+- Yukari/Asagi butonlari
+- Coklu secim + Delete tusu ile silme
+- Sil ve Tumunu Temizle butonlari
+```
+
+### Prompt 4 -- PDF Olusturma
+```
+PdfService olustur (PdfSharpCore kullanarak):
+- MergeImagesToPdf: ImageItem listesi + PdfSettings -> byte[]
+- Her resim bir sayfa: sayfa boyutuna gore olcekle ve merkezle
+- Olcekleme modlari: FitToPage, FitToWidth, OriginalSize
+- Sayfa boyutlari: A4, Letter, A3
+- Yonelim: Portrait / Landscape
+- Kenar boslugu: ayarlanabilir (mm cinsinden)
+- EXIF orientasyon duzeltmesi uygula
+```
+
+### Prompt 5 -- Onizleme ve Kaydetme
+```
+Onizleme sistemi:
+- PDF byte[] -> PictureBox'ta sayfa gorseli goster
+- Sayfa navigasyonu: Onceki/Sonraki butonlari + "Sayfa X/Y" label
+- PDF Kaydet: SaveFileDialog ile .pdf uzantili kaydetme
+- ProgressBar: PDF olusturma sirasinda ilerleme goster
+- StatusBar: dosya sayisi, toplam boyut, durum bilgisi
+- BackgroundWorker veya Task.Run ile async PDF olusturma
+```
+
+---
+
+## Dikkat Edilmesi Gerekenler
+
+1. **Bellek Yonetimi:** Buyuk resimleri `using` blogu icinde isle, Bitmap'leri mutlaka `Dispose()` et
+2. **Thread Safety:** UI guncellemelerini `Invoke`/`BeginInvoke` ile yap
+3. **Gecici Dosyalar:** Temp klasorunde olusturulan dosyalari uygulama kapanirken temizle
+4. **HEIC Destegi:** Windows'ta varsayilan olarak desteklenmez, ImageSharp ile donustur
+5. **DPI Farkindaligi:** `Application.SetHighDpiMode(HighDpiMode.SystemAware)` ekle
+6. **PDF Boyutu:** Resimleri PDF'e eklerken JPEG sikistirma uygula (kalite: 85-90)
