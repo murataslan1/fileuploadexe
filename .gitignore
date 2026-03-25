@@ -6,3 +6,6 @@ obj/
 *.DotSettings.user
 publish/
 .DS_Store
+
+# Session transcript (context for new terminal sessions)
+SESSION_TRANSCRIPT.md
