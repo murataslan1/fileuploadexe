@@ -318,9 +318,13 @@ public partial class MainForm : Form
                 UpdateStatus();
             });
         }
-        else if (e.Node.Tag is string groupKey && groupKey != "__all__")
+        else if (e.Node.Tag is string groupKey)
         {
-            if (groupKey != UngroupedKey)
+            menu.Items.Add("Select All", null, (s, ev) => SetGroupChecked(groupKey, true));
+            menu.Items.Add("Deselect All", null, (s, ev) => SetGroupChecked(groupKey, false));
+            menu.Items.Add(new ToolStripSeparator());
+
+            if (groupKey != "__all__" && groupKey != UngroupedKey)
             {
                 menu.Items.Add("Rename Group", null, (s, ev) => e.Node.BeginEdit());
                 menu.Items.Add("Delete Group", null, (s, ev) => DeleteGroup(groupKey));
@@ -328,10 +332,6 @@ public partial class MainForm : Form
             }
             menu.Items.Add("Create PDF from this Group", null, (s, ev) => CreatePdfFromGroup(groupKey));
             menu.Items.Add(new ToolStripSeparator());
-            menu.Items.Add("New Group...", null, (s, ev) => AddNewGroup());
-        }
-        else
-        {
             menu.Items.Add("New Group...", null, (s, ev) => AddNewGroup());
         }
 
@@ -505,6 +505,34 @@ public partial class MainForm : Form
     }
 
     // ===========================
+    // SELECT ALL / NONE
+    // ===========================
+
+    private void SetAllChecked(bool isChecked)
+    {
+        foreach (var img in _allImages)
+            img.IsSelected = isChecked;
+        RebuildTree();
+        UpdateMergeButtonState();
+    }
+
+    private void SetGroupChecked(string groupKey, bool isChecked)
+    {
+        IEnumerable<ImageItem> imgs;
+        if (groupKey == "__all__")
+            imgs = _allImages;
+        else if (groupKey == UngroupedKey)
+            imgs = _allImages.Where(i => string.IsNullOrEmpty(i.GroupName));
+        else
+            imgs = _allImages.Where(i => i.GroupName == groupKey);
+
+        foreach (var img in imgs)
+            img.IsSelected = isChecked;
+        RebuildTree();
+        UpdateMergeButtonState();
+    }
+
+    // ===========================
     // CHECKBOX SYNC
     // ===========================
 
@@ -544,10 +572,13 @@ public partial class MainForm : Form
         btnMoveUp.Click += OnMoveUpClick;
         btnMoveDown.Click += OnMoveDownClick;
         btnAddGroup.Click += (s, e) => AddNewGroup();
+        btnSelectAll.Click += (s, e) => SetAllChecked(true);
+        btnSelectNone.Click += (s, e) => SetAllChecked(false);
         btnClearAll.Click += OnClearAllClick;
 
         btnMergePreview.Click += OnMergePreviewClick;
         btnSavePdf.Click += OnSavePdfClick;
+        btnSaveAll.Click += OnSaveAllClick;
         btnPrevPage.Click += (s, e) => ShowPreviewPage(_currentPageIndex - 1);
         btnNextPage.Click += (s, e) => ShowPreviewPage(_currentPageIndex + 1);
 
@@ -767,6 +798,74 @@ public partial class MainForm : Form
     }
 
     // ===========================
+    // SAVE ALL GROUPS
+    // ===========================
+
+    private void OnSaveAllClick(object? sender, EventArgs e)
+    {
+        if (_allImages.Count == 0) return;
+
+        // Collect groups that have checked images
+        var settings = GetCurrentPdfSettings();
+        var groupsToSave = new List<(string Name, List<ImageItem> Images)>();
+
+        foreach (var group in _groups)
+        {
+            var imgs = _allImages.Where(i => i.GroupName == group && i.IsSelected).OrderBy(i => i.Order).ToList();
+            if (imgs.Count > 0)
+                groupsToSave.Add((group, imgs));
+        }
+
+        // Ungrouped
+        var ungrouped = _allImages.Where(i => string.IsNullOrEmpty(i.GroupName) && i.IsSelected).OrderBy(i => i.Order).ToList();
+        if (ungrouped.Count > 0)
+            groupsToSave.Add((UngroupedLabel, ungrouped));
+
+        if (groupsToSave.Count == 0)
+        {
+            MessageBox.Show("No checked images found in any group.", "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return;
+        }
+
+        using var dialog = new FolderBrowserDialog
+        {
+            Description = $"Select folder to save {groupsToSave.Count} PDF files",
+            ShowNewFolderButton = true
+        };
+
+        if (dialog.ShowDialog() != DialogResult.OK) return;
+
+        int savedCount = 0;
+        var errors = new List<string>();
+
+        foreach (var (name, images) in groupsToSave)
+        {
+            try
+            {
+                var (pdfBytes, pdfErrors) = _pdfService.MergeImagesToPdf(images, settings);
+                var safeName = string.Join("_", name.Split(Path.GetInvalidFileNameChars()));
+                var filePath = Path.Combine(dialog.SelectedPath, $"{safeName}.pdf");
+                _pdfService.SavePdf(pdfBytes, filePath);
+                savedCount++;
+
+                if (pdfErrors.Count > 0)
+                    errors.AddRange(pdfErrors);
+            }
+            catch (Exception ex)
+            {
+                errors.Add($"{name}: {ex.Message}");
+            }
+        }
+
+        if (errors.Count > 0)
+            MessageBox.Show($"Saved {savedCount} PDFs with some warnings:\n\n{string.Join("\n", errors)}", "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+        else
+            MessageBox.Show($"{savedCount} PDF files saved to:\n{dialog.SelectedPath}", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+
+        lblStatus.Text = $"{savedCount} PDFs saved to {dialog.SelectedPath}";
+    }
+
+    // ===========================
     // HELPERS
     // ===========================
 
@@ -788,7 +887,9 @@ public partial class MainForm : Form
 
     private void UpdateMergeButtonState()
     {
-        btnMergePreview.Enabled = _allImages.Count > 0 && _allImages.Any(i => i.IsSelected);
+        bool hasChecked = _allImages.Count > 0 && _allImages.Any(i => i.IsSelected);
+        btnMergePreview.Enabled = hasChecked;
+        btnSaveAll.Enabled = hasChecked && _groups.Count > 0;
     }
 
     private void OpenFileDialogManual()
