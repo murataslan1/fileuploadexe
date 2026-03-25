@@ -12,6 +12,7 @@ public class ImageItem : IDisposable
     public Image? Thumbnail { get; set; }
     public int Order { get; set; }
     public bool IsSelected { get; set; } = true;
+    public string GroupName { get; set; } = string.Empty;
     public string? ConvertedPath { get; set; }
 
     private bool _disposed;
