@@ -38,6 +38,17 @@ partial class MainForm
     private ToolStripStatusLabel lblStatus;
     private ToolStripProgressBar progressBar;
 
+    // Color palette
+    private static readonly System.Drawing.Color BgMain = System.Drawing.Color.FromArgb(245, 246, 250);
+    private static readonly System.Drawing.Color BgPanel = System.Drawing.Color.White;
+    private static readonly System.Drawing.Color BgPreview = System.Drawing.Color.FromArgb(248, 249, 252);
+    private static readonly System.Drawing.Color BgToolbar = System.Drawing.Color.FromArgb(240, 242, 248);
+    private static readonly System.Drawing.Color AccentBlue = System.Drawing.Color.FromArgb(41, 121, 255);
+    private static readonly System.Drawing.Color AccentGreen = System.Drawing.Color.FromArgb(67, 160, 71);
+    private static readonly System.Drawing.Color TextDark = System.Drawing.Color.FromArgb(40, 50, 70);
+    private static readonly System.Drawing.Color TextMuted = System.Drawing.Color.FromArgb(130, 140, 160);
+    private static readonly System.Drawing.Color BorderLight = System.Drawing.Color.FromArgb(215, 220, 232);
+
     protected override void Dispose(bool disposing)
     {
         if (disposing && (components != null))
@@ -51,16 +62,35 @@ partial class MainForm
     {
         components = new System.ComponentModel.Container();
         AutoScaleMode = AutoScaleMode.Font;
+        Font = new System.Drawing.Font("Segoe UI", 9f);
         Text = "Image to PDF Merger";
         Size = new System.Drawing.Size(1200, 750);
         MinimumSize = new System.Drawing.Size(900, 600);
         StartPosition = FormStartPosition.CenterScreen;
         KeyPreview = true;
+        BackColor = BgMain;
 
         // === StatusStrip ===
-        statusStrip = new StatusStrip();
-        lblStatus = new ToolStripStatusLabel("Ready") { Spring = true, TextAlign = System.Drawing.ContentAlignment.MiddleLeft };
-        progressBar = new ToolStripProgressBar { Visible = false, Minimum = 0, Maximum = 100 };
+        statusStrip = new StatusStrip
+        {
+            BackColor = System.Drawing.Color.FromArgb(30, 40, 60),
+            ForeColor = System.Drawing.Color.FromArgb(200, 210, 230),
+            SizingGrip = false
+        };
+        lblStatus = new ToolStripStatusLabel("Ready -- Drop images to get started")
+        {
+            Spring = true,
+            TextAlign = System.Drawing.ContentAlignment.MiddleLeft,
+            ForeColor = System.Drawing.Color.FromArgb(200, 210, 230),
+            Font = new System.Drawing.Font("Segoe UI", 8.5f)
+        };
+        progressBar = new ToolStripProgressBar
+        {
+            Visible = false,
+            Minimum = 0,
+            Maximum = 100,
+            Style = ProgressBarStyle.Continuous
+        };
         statusStrip.Items.AddRange(new ToolStripItem[] { lblStatus, progressBar });
         Controls.Add(statusStrip);
 
@@ -70,33 +100,40 @@ partial class MainForm
             Dock = DockStyle.Fill,
             FixedPanel = FixedPanel.Panel1,
             SplitterDistance = 370,
-            SplitterWidth = 5
+            SplitterWidth = 1,
+            BackColor = BorderLight
         };
+        splitMain.Panel1.BackColor = BgPanel;
+        splitMain.Panel2.BackColor = BgPreview;
         Controls.Add(splitMain);
 
         // ==============================
-        // LEFT PANEL (Panel1)
+        // LEFT PANEL
         // ==============================
 
-        // --- DropZone (Top) ---
+        // --- DropZone ---
         dropZone = new DropZonePanel();
         splitMain.Panel1.Controls.Add(dropZone);
 
-        // --- Search Panel (Top, below DropZone) ---
+        // --- Search Panel ---
         searchPanel = new Panel
         {
             Dock = DockStyle.Top,
-            Height = 35,
-            Padding = new Padding(5, 5, 5, 2)
+            Height = 38,
+            Padding = new Padding(8, 6, 8, 4),
+            BackColor = BgPanel
         };
 
         btnClearSearch = new Button
         {
             Text = "X",
             Dock = DockStyle.Right,
-            Width = 30,
+            Width = 32,
             FlatStyle = FlatStyle.Flat,
-            Cursor = Cursors.Hand
+            Cursor = Cursors.Hand,
+            BackColor = BgPanel,
+            ForeColor = TextMuted,
+            Font = new System.Drawing.Font("Segoe UI", 9f, System.Drawing.FontStyle.Bold)
         };
         btnClearSearch.FlatAppearance.BorderSize = 0;
 
@@ -104,106 +141,116 @@ partial class MainForm
         {
             Dock = DockStyle.Fill,
             Font = new System.Drawing.Font("Segoe UI", 10f),
-            PlaceholderText = "Search images... (Ctrl+F)"
+            PlaceholderText = "Search images... (Ctrl+F)",
+            BorderStyle = BorderStyle.FixedSingle,
+            BackColor = System.Drawing.Color.FromArgb(248, 249, 253)
         };
 
         searchPanel.Controls.Add(txtSearch);
         searchPanel.Controls.Add(btnClearSearch);
         splitMain.Panel1.Controls.Add(searchPanel);
 
-        // --- Toolbar Left (Bottom) ---
+        // --- Toolbar Left ---
         toolbarLeft = new FlowLayoutPanel
         {
             Dock = DockStyle.Bottom,
-            Height = 45,
-            Padding = new Padding(5),
-            FlowDirection = FlowDirection.LeftToRight
+            Height = 48,
+            Padding = new Padding(6, 8, 6, 6),
+            FlowDirection = FlowDirection.LeftToRight,
+            BackColor = BgToolbar
         };
 
-        btnDelete = CreateToolbarButton("Delete", "Delete selected images");
-        btnMoveUp = CreateToolbarButton("Up", "Move selected up");
-        btnMoveDown = CreateToolbarButton("Down", "Move selected down");
-        btnClearAll = CreateToolbarButton("Clear All", "Clear all images");
+        btnDelete = CreateStyledButton("Delete", TextDark, BgToolbar, BorderLight);
+        btnMoveUp = CreateStyledButton("Up", TextDark, BgToolbar, BorderLight);
+        btnMoveDown = CreateStyledButton("Down", TextDark, BgToolbar, BorderLight);
+        btnClearAll = CreateStyledButton("Clear All", System.Drawing.Color.FromArgb(180, 60, 60), BgToolbar, System.Drawing.Color.FromArgb(230, 180, 180));
 
         toolbarLeft.Controls.AddRange(new Control[] { btnDelete, btnMoveUp, btnMoveDown, btnClearAll });
         splitMain.Panel1.Controls.Add(toolbarLeft);
 
-        // --- ListView (Fill, remaining space) ---
+        // --- ListView ---
         listViewImages = new ThumbnailListView
         {
-            Dock = DockStyle.Fill
+            Dock = DockStyle.Fill,
+            BackColor = BgPanel,
+            ForeColor = TextDark,
+            Font = new System.Drawing.Font("Segoe UI", 9f),
+            BorderStyle = BorderStyle.None
         };
         splitMain.Panel1.Controls.Add(listViewImages);
 
-        // Fix dock order: Fill must be added last conceptually,
-        // but in WinForms the order in Controls determines fill priority.
-        // Re-order: dropZone(Top) -> searchPanel(Top) -> toolbarLeft(Bottom) -> listView(Fill)
+        // Dock order
         splitMain.Panel1.Controls.SetChildIndex(dropZone, 3);
         splitMain.Panel1.Controls.SetChildIndex(searchPanel, 2);
         splitMain.Panel1.Controls.SetChildIndex(toolbarLeft, 1);
         splitMain.Panel1.Controls.SetChildIndex(listViewImages, 0);
 
         // ==============================
-        // RIGHT PANEL (Panel2)
+        // RIGHT PANEL
         // ==============================
 
-        // --- Toolbar Right (Bottom) ---
+        // --- Bottom Toolbar ---
         toolbarRight = new FlowLayoutPanel
         {
             Dock = DockStyle.Bottom,
-            Height = 70,
-            Padding = new Padding(5),
+            Height = 52,
+            Padding = new Padding(12, 10, 12, 8),
             FlowDirection = FlowDirection.LeftToRight,
-            WrapContents = true
+            WrapContents = false,
+            BackColor = BgToolbar
         };
 
-        lblPageSizeLabel = new Label { Text = "Page:", AutoSize = true, Margin = new Padding(3, 8, 0, 0) };
-        cmbPageSize = new ComboBox
+        lblPageSizeLabel = new Label
         {
-            DropDownStyle = ComboBoxStyle.DropDownList,
-            Width = 80,
-            Margin = new Padding(3, 5, 10, 0)
+            Text = "Page:",
+            AutoSize = true,
+            ForeColor = TextMuted,
+            Font = new System.Drawing.Font("Segoe UI", 8.5f),
+            Margin = new Padding(0, 7, 2, 0)
         };
-        cmbPageSize.Items.AddRange(new object[] { "A4", "Letter", "A3", "Original" });
-        cmbPageSize.SelectedIndex = 0;
+        cmbPageSize = CreateStyledComboBox(80, new object[] { "A4", "Letter", "A3", "Original" });
 
-        lblOrientationLabel = new Label { Text = "Orientation:", AutoSize = true, Margin = new Padding(3, 8, 0, 0) };
-        cmbOrientation = new ComboBox
+        lblOrientationLabel = new Label
         {
-            DropDownStyle = ComboBoxStyle.DropDownList,
-            Width = 95,
-            Margin = new Padding(3, 5, 10, 0)
+            Text = "Orient:",
+            AutoSize = true,
+            ForeColor = TextMuted,
+            Font = new System.Drawing.Font("Segoe UI", 8.5f),
+            Margin = new Padding(8, 7, 2, 0)
         };
-        cmbOrientation.Items.AddRange(new object[] { "Portrait", "Landscape" });
-        cmbOrientation.SelectedIndex = 0;
+        cmbOrientation = CreateStyledComboBox(90, new object[] { "Portrait", "Landscape" });
 
-        lblScaleModeLabel = new Label { Text = "Scale:", AutoSize = true, Margin = new Padding(3, 8, 0, 0) };
-        cmbScaleMode = new ComboBox
+        lblScaleModeLabel = new Label
         {
-            DropDownStyle = ComboBoxStyle.DropDownList,
-            Width = 110,
-            Margin = new Padding(3, 5, 10, 0)
+            Text = "Scale:",
+            AutoSize = true,
+            ForeColor = TextMuted,
+            Font = new System.Drawing.Font("Segoe UI", 8.5f),
+            Margin = new Padding(8, 7, 2, 0)
         };
-        cmbScaleMode.Items.AddRange(new object[] { "Fit to Page", "Original Size", "Fit to Width" });
-        cmbScaleMode.SelectedIndex = 0;
+        cmbScaleMode = CreateStyledComboBox(105, new object[] { "Fit to Page", "Original Size", "Fit to Width" });
 
         chkMargin = new CheckBox
         {
-            Text = "Margin (10mm)",
+            Text = "Margin",
             Checked = true,
             AutoSize = true,
-            Margin = new Padding(10, 8, 10, 0)
+            ForeColor = TextDark,
+            Font = new System.Drawing.Font("Segoe UI", 8.5f),
+            Margin = new Padding(12, 6, 8, 0)
         };
 
         btnMergePreview = new Button
         {
             Text = "Merge && Preview",
-            Width = 120,
-            Height = 32,
-            Margin = new Padding(10, 3, 5, 0),
-            BackColor = System.Drawing.Color.FromArgb(70, 130, 220),
+            Width = 130,
+            Height = 34,
+            Margin = new Padding(12, 0, 4, 0),
+            BackColor = AccentBlue,
             ForeColor = System.Drawing.Color.White,
             FlatStyle = FlatStyle.Flat,
+            Font = new System.Drawing.Font("Segoe UI Semibold", 9.5f, System.Drawing.FontStyle.Bold),
+            Cursor = Cursors.Hand,
             Enabled = false
         };
         btnMergePreview.FlatAppearance.BorderSize = 0;
@@ -212,11 +259,13 @@ partial class MainForm
         {
             Text = "Save PDF",
             Width = 100,
-            Height = 32,
-            Margin = new Padding(5, 3, 5, 0),
-            BackColor = System.Drawing.Color.FromArgb(60, 170, 80),
+            Height = 34,
+            Margin = new Padding(4, 0, 0, 0),
+            BackColor = AccentGreen,
             ForeColor = System.Drawing.Color.White,
             FlatStyle = FlatStyle.Flat,
+            Font = new System.Drawing.Font("Segoe UI Semibold", 9.5f, System.Drawing.FontStyle.Bold),
+            Cursor = Cursors.Hand,
             Enabled = false
         };
         btnSavePdf.FlatAppearance.BorderSize = 0;
@@ -231,73 +280,120 @@ partial class MainForm
         });
         splitMain.Panel2.Controls.Add(toolbarRight);
 
-        // --- Navigation Panel (Bottom, above toolbar) ---
+        // --- Navigation Panel ---
         navPanel = new Panel
         {
             Dock = DockStyle.Bottom,
-            Height = 40
+            Height = 40,
+            BackColor = BgPreview
         };
 
         btnPrevPage = new Button
         {
-            Text = "<",
-            Width = 45,
-            Height = 30,
-            Location = new System.Drawing.Point(10, 5),
+            Text = "\u25C0",
+            Width = 40,
+            Height = 28,
+            FlatStyle = FlatStyle.Flat,
+            ForeColor = AccentBlue,
+            BackColor = BgPreview,
+            Font = new System.Drawing.Font("Segoe UI", 10f),
+            Cursor = Cursors.Hand,
             Enabled = false
         };
+        btnPrevPage.FlatAppearance.BorderColor = BorderLight;
 
         lblPageInfo = new Label
         {
             Text = "Page 0 / 0",
             AutoSize = true,
-            Location = new System.Drawing.Point(65, 10),
-            Font = new System.Drawing.Font("Segoe UI", 10f)
+            ForeColor = TextDark,
+            Font = new System.Drawing.Font("Segoe UI Semibold", 10f)
         };
 
         btnNextPage = new Button
         {
-            Text = ">",
-            Width = 45,
-            Height = 30,
-            Location = new System.Drawing.Point(170, 5),
+            Text = "\u25B6",
+            Width = 40,
+            Height = 28,
+            FlatStyle = FlatStyle.Flat,
+            ForeColor = AccentBlue,
+            BackColor = BgPreview,
+            Font = new System.Drawing.Font("Segoe UI", 10f),
+            Cursor = Cursors.Hand,
             Enabled = false
         };
+        btnNextPage.FlatAppearance.BorderColor = BorderLight;
 
-        navPanel.Controls.AddRange(new Control[] { btnPrevPage, lblPageInfo, btnNextPage });
+        // Center nav controls
+        var navFlow = new FlowLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            FlowDirection = FlowDirection.LeftToRight,
+            WrapContents = false,
+            AutoSize = false,
+            Padding = new Padding(0, 5, 0, 0)
+        };
+        navFlow.Controls.AddRange(new Control[] { btnPrevPage, lblPageInfo, btnNextPage });
+        lblPageInfo.Margin = new Padding(12, 5, 12, 0);
+        navPanel.Controls.Add(navFlow);
+
+        // Center the flow panel content
+        navPanel.Resize += (s, e) =>
+        {
+            int totalW = btnPrevPage.Width + lblPageInfo.PreferredWidth + btnNextPage.Width + 48;
+            navFlow.Padding = new Padding(Math.Max(0, (navPanel.Width - totalW) / 2), 5, 0, 0);
+        };
+
         splitMain.Panel2.Controls.Add(navPanel);
 
-        // --- PictureBox Preview (Fill) ---
+        // --- PictureBox Preview ---
         picPreview = new PictureBox
         {
             Dock = DockStyle.Fill,
             SizeMode = PictureBoxSizeMode.Zoom,
-            BackColor = System.Drawing.Color.FromArgb(240, 240, 240),
-            BorderStyle = BorderStyle.FixedSingle
+            BackColor = BgPreview,
+            BorderStyle = BorderStyle.None,
+            Padding = new Padding(16)
         };
         splitMain.Panel2.Controls.Add(picPreview);
 
-        // Fix dock order for Panel2
+        // Dock order for Panel2
         splitMain.Panel2.Controls.SetChildIndex(toolbarRight, 2);
         splitMain.Panel2.Controls.SetChildIndex(navPanel, 1);
         splitMain.Panel2.Controls.SetChildIndex(picPreview, 0);
     }
 
-    private Button CreateToolbarButton(string text, string tooltip)
+    private Button CreateStyledButton(string text, System.Drawing.Color foreColor, System.Drawing.Color backColor, System.Drawing.Color borderColor)
     {
         var btn = new Button
         {
             Text = text,
-            Width = 75,
+            Width = 78,
             Height = 30,
-            Margin = new Padding(3),
+            Margin = new Padding(2),
             FlatStyle = FlatStyle.Flat,
-            Cursor = Cursors.Hand
+            Cursor = Cursors.Hand,
+            ForeColor = foreColor,
+            BackColor = BgPanel,
+            Font = new System.Drawing.Font("Segoe UI", 8.5f)
         };
-        btn.FlatAppearance.BorderColor = System.Drawing.Color.FromArgb(200, 200, 200);
-
-        var tt = new ToolTip();
-        tt.SetToolTip(btn, tooltip);
+        btn.FlatAppearance.BorderColor = borderColor;
+        btn.FlatAppearance.BorderSize = 1;
         return btn;
+    }
+
+    private ComboBox CreateStyledComboBox(int width, object[] items)
+    {
+        var cmb = new ComboBox
+        {
+            DropDownStyle = ComboBoxStyle.DropDownList,
+            Width = width,
+            Font = new System.Drawing.Font("Segoe UI", 8.5f),
+            Margin = new Padding(2, 3, 0, 0),
+            BackColor = BgPanel
+        };
+        cmb.Items.AddRange(items);
+        cmb.SelectedIndex = 0;
+        return cmb;
     }
 }

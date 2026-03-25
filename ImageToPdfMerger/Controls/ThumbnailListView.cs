@@ -17,19 +17,20 @@ public class ThumbnailListView : ListView
         MultiSelect = true;
         HideSelection = false;
         DoubleBuffered = true;
-        GridLines = true;
+        GridLines = false;
+        BorderStyle = BorderStyle.None;
 
         _imageList = new ImageList
         {
-            ImageSize = new Size(48, 48),
+            ImageSize = new Size(40, 40),
             ColorDepth = ColorDepth.Depth32Bit
         };
         SmallImageList = _imageList;
 
-        Columns.Add("", 55);
-        Columns.Add("Filename", 150);
-        Columns.Add("Size", 70);
-        Columns.Add("Resolution", 90);
+        Columns.Add("", 30);
+        Columns.Add("Filename", 170);
+        Columns.Add("Size", 65);
+        Columns.Add("Resolution", 85);
 
         ItemDrag += OnItemDrag;
         DragEnter += OnDragEnter;

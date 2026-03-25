@@ -6,22 +6,41 @@ namespace ImageToPdfMerger.Services;
 
 public class PdfService
 {
-    public byte[] MergeImagesToPdf(List<ImageItem> images, PdfSettings settings)
+    public (byte[] PdfBytes, List<string> Errors) MergeImagesToPdf(List<ImageItem> images, PdfSettings settings)
     {
         var document = new PdfDocument();
         document.Info.Title = "Merged Images";
         document.Info.Creator = "ImageToPdfMerger";
+        var errors = new List<string>();
 
         var selectedImages = images.Where(i => i.IsSelected).OrderBy(i => i.Order).ToList();
 
         foreach (var item in selectedImages)
         {
-            AddImageToPage(document, item, settings);
+            try
+            {
+                AddImageToPage(document, item, settings);
+            }
+            catch (Exception ex)
+            {
+                errors.Add($"{item.FileName}: {ex.Message}");
+            }
+        }
+
+        if (document.PageCount == 0)
+        {
+            // Add a blank page if all images failed
+            var page = document.AddPage();
+            using var gfx = XGraphics.FromPdfPage(page);
+            gfx.DrawString("No images could be processed.",
+                new XFont("Arial", 14), XBrushes.Gray,
+                new XRect(0, 0, page.Width.Point, page.Height.Point),
+                XStringFormats.Center);
         }
 
         using var ms = new MemoryStream();
         document.Save(ms, false);
-        return ms.ToArray();
+        return (ms.ToArray(), errors);
     }
 
     private void AddImageToPage(PdfDocument document, ImageItem item, PdfSettings settings)

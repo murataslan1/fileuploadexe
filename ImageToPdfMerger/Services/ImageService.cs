@@ -1,9 +1,8 @@
 using System.Drawing;
+using System.Drawing.Drawing2D;
+using System.Drawing.Imaging;
 using ImageToPdfMerger.Models;
 using ImageToPdfMerger.Utils;
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.Formats.Jpeg;
-using SixLabors.ImageSharp.Processing;
 
 namespace ImageToPdfMerger.Services;
 
@@ -20,37 +19,92 @@ public class ImageService
             Order = 0
         };
 
-        using var image = SixLabors.ImageSharp.Image.Load(filePath);
-        image.Mutate(x => x.AutoOrient());
+        // System.Drawing supports HEIC natively on Windows 10/11
+        using var image = Image.FromFile(filePath);
+
+        CorrectOrientation(image);
 
         item.Width = image.Width;
         item.Height = image.Height;
 
-        if (FileHelper.NeedsConversion(filePath))
-        {
-            var tempPath = FileHelper.GetTempFilePath(".jpg");
-            image.Save(tempPath, new JpegEncoder { Quality = 90 });
-            item.ConvertedPath = tempPath;
-        }
+        // Always convert to standard JPEG for PdfSharpCore compatibility
+        var tempPath = FileHelper.GetTempFilePath(".jpg");
+        SaveAsJpeg(image, tempPath, 90);
+        item.ConvertedPath = tempPath;
 
-        item.Thumbnail = CreateThumbnail(image, 48);
+        item.Thumbnail = CreateThumbnail(image, 40);
 
         return item;
     }
 
-    private System.Drawing.Image CreateThumbnail(SixLabors.ImageSharp.Image sourceImage, int size)
+    private void CorrectOrientation(Image image)
     {
-        using var clone = sourceImage.Clone(x => x.Resize(new ResizeOptions
+        try
         {
-            Size = new SixLabors.ImageSharp.Size(size, size),
-            Mode = ResizeMode.Max,
-            Sampler = KnownResamplers.Lanczos3
-        }));
+            if (Array.IndexOf(image.PropertyIdList, 0x0112) < 0) return;
 
-        var ms = new MemoryStream();
-        clone.Save(ms, new JpegEncoder { Quality = 85 });
-        ms.Position = 0;
-        return System.Drawing.Image.FromStream(ms);
+            var prop = image.GetPropertyItem(0x0112);
+            if (prop?.Value == null || prop.Value.Length < 2) return;
+
+            var orientation = BitConverter.ToUInt16(prop.Value, 0);
+            switch (orientation)
+            {
+                case 2: image.RotateFlip(RotateFlipType.RotateNoneFlipX); break;
+                case 3: image.RotateFlip(RotateFlipType.Rotate180FlipNone); break;
+                case 4: image.RotateFlip(RotateFlipType.RotateNoneFlipY); break;
+                case 5: image.RotateFlip(RotateFlipType.Rotate90FlipX); break;
+                case 6: image.RotateFlip(RotateFlipType.Rotate90FlipNone); break;
+                case 7: image.RotateFlip(RotateFlipType.Rotate270FlipX); break;
+                case 8: image.RotateFlip(RotateFlipType.Rotate270FlipNone); break;
+            }
+            image.RemovePropertyItem(0x0112);
+        }
+        catch
+        {
+            // EXIF data not available or corrupted -- skip orientation fix
+        }
+    }
+
+    private void SaveAsJpeg(Image image, string outputPath, int quality)
+    {
+        var jpegCodec = ImageCodecInfo.GetImageEncoders()
+            .FirstOrDefault(c => c.FormatID == ImageFormat.Jpeg.Guid);
+
+        if (jpegCodec != null)
+        {
+            var encoderParams = new EncoderParameters(1);
+            encoderParams.Param[0] = new EncoderParameter(Encoder.Quality, (long)quality);
+            image.Save(outputPath, jpegCodec, encoderParams);
+        }
+        else
+        {
+            image.Save(outputPath, ImageFormat.Jpeg);
+        }
+    }
+
+    private Image CreateThumbnail(Image sourceImage, int size)
+    {
+        int thumbWidth, thumbHeight;
+        if (sourceImage.Width > sourceImage.Height)
+        {
+            thumbWidth = size;
+            thumbHeight = (int)((double)sourceImage.Height / sourceImage.Width * size);
+        }
+        else
+        {
+            thumbHeight = size;
+            thumbWidth = (int)((double)sourceImage.Width / sourceImage.Height * size);
+        }
+
+        if (thumbWidth < 1) thumbWidth = 1;
+        if (thumbHeight < 1) thumbHeight = 1;
+
+        var thumbnail = new Bitmap(thumbWidth, thumbHeight);
+        using var g = Graphics.FromImage(thumbnail);
+        g.InterpolationMode = InterpolationMode.HighQualityBicubic;
+        g.SmoothingMode = SmoothingMode.HighQuality;
+        g.DrawImage(sourceImage, 0, 0, thumbWidth, thumbHeight);
+        return thumbnail;
     }
 
     public async Task<List<ImageItem>> LoadImagesAsync(

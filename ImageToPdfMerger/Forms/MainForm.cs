@@ -255,7 +255,15 @@ public partial class MainForm : Form
 
         try
         {
-            _currentPdfBytes = await Task.Run(() => _pdfService.MergeImagesToPdf(selectedImages, settings));
+            var (pdfBytes, pdfErrors) = await Task.Run(() => _pdfService.MergeImagesToPdf(selectedImages, settings));
+            _currentPdfBytes = pdfBytes;
+
+            if (pdfErrors.Count > 0)
+            {
+                MessageBox.Show(
+                    $"Some images could not be added to PDF:\n\n{string.Join("\n", pdfErrors)}",
+                    "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
 
             progressBar.Value = 50;
             lblStatus.Text = "Rendering preview...";

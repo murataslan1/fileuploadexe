@@ -16,12 +16,6 @@ public static class FileHelper
         return paths.Where(IsSupportedImage).ToArray();
     }
 
-    public static bool NeedsConversion(string filePath)
-    {
-        var ext = Path.GetExtension(filePath).ToLowerInvariant();
-        return ext is ".heic" or ".webp" or ".tiff";
-    }
-
     public static string FormatFileSize(long bytes)
     {
         if (bytes < 1024) return $"{bytes} B";
